@@ -324,7 +324,7 @@ export class SessionOrchestrator {
       sessionId,
       user,
       phase: state as SessionPhase,
-      lockedAmount,
+      lockedAmount: lockedAmount.toString() as unknown as bigint, // Convert for JSON
       startedAt: Number(startedAt),
       timeUntilTimeout: Number(timeUntilTimeout),
     };
