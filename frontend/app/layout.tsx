@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import { config } from "@/lib/wagmi";
 import { Geist, Geist_Mono } from "next/font/google";
 import "@/styles/globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import { WalletProvider } from "@/hooks/use-wallet";
+import { Providers } from "@/components/providers";
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -22,6 +23,8 @@ export const metadata: Metadata = {
     description: "Trade the world, keep your yield. Deposit USDC via Circle Arc, earn yield from BlackRock BUIDL RWAs, and trade prediction markets using only your accrued yield.",
 };
 
+// ... existing code ...
+
 export default function RootLayout({
     children,
 }: Readonly<{
@@ -38,9 +41,9 @@ export default function RootLayout({
                     enableSystem
                     disableTransitionOnChange
                 >
-                    <WalletProvider>
+                    <Providers>
                         {children}
-                    </WalletProvider>
+                    </Providers>
                 </ThemeProvider>
             </body>
         </html>

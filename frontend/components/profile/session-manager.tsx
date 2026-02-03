@@ -1,27 +1,43 @@
 "use client"
 
-import { Wifi, WifiOff, Zap, Clock, RefreshCw } from "lucide-react"
+import { Wifi, WifiOff, Zap, Clock, RefreshCw, Loader2, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-interface Channel {
-    id: string
-    counterparty: string
-    balance: number
-    status: "active" | "pending" | "closed"
-    lastActivity: string
-}
-
-const channels: Channel[] = [
-    { id: "ch-001", counterparty: "Yellow Network Hub", balance: 500.00, status: "active", lastActivity: "2 min ago" },
-    { id: "ch-002", counterparty: "Market Maker Alpha", balance: 1250.00, status: "active", lastActivity: "5 min ago" },
-    { id: "ch-003", counterparty: "Liquidity Pool B", balance: 0, status: "pending", lastActivity: "1 hour ago" },
-]
+import { useYellowSession } from "@/hooks/use-yellow-session"
+import { useSessionEscrow } from "@/hooks/use-session-escrow"
+import { useState } from "react"
+import { formatUnits } from "viem"
 
 export function SessionManager() {
-    const isSessionActive = true
-    const sessionDuration = "2h 34m"
-    const totalChannelBalance = channels.reduce((sum, ch) => sum + ch.balance, 0)
-    const activeChannels = channels.filter(ch => ch.status === "active").length
+    const { session, balance: streamBalance, isLoading, openSession, closeSession, refresh: refreshSession } = useYellowSession()
+    const { balance: escrowBalance, deposit: depositToEscrow, isApproving, isDepositing } = useSessionEscrow()
+    
+    // UI State for Open Channel
+    const [amount, setAmount] = useState("100") // Default 100 USDC
+    
+    const handleOpenChannel = async () => {
+        try {
+            // 1. Deposit to Escrow
+            // Only mocked for now if user confirms? 
+            // The hook handles approve + deposit transaction flow
+            await depositToEscrow(amount)
+            
+            // 2. Open Backend Session
+            // In real app, we wait for deposit confirmation/events. 
+            // For now assuming success or optimistic update
+            // (Note: The hook returns early 'depositing' string, need better promise handling in hook later)
+            // But let's trigger openSession
+            await openSession(amount + "000000", true) // 6 decimals string
+        } catch (e) {
+            console.error(e)
+        }
+    }
+
+    const isSessionActive = session?.status === "active"
+    const totalChannelBalance = streamBalance ? parseFloat(formatUnits(BigInt(streamBalance.available), 6)) : 0
+    // Mock duration for now or calc from createdAt
+    const sessionDuration = session ? "Active" : "Inactive"
+
+    const isProcessing = isLoading || isApproving || isDepositing
 
     return (
         <div className="rounded-xl border border-border bg-card/60 glass overflow-hidden">
@@ -59,16 +75,22 @@ export function SessionManager() {
                 {/* Session Stats */}
                 <div className="grid grid-cols-3 gap-4">
                     <div className="text-center p-3 rounded-lg bg-secondary/30">
-                        <p className="font-mono text-xl font-bold text-foreground">{activeChannels}</p>
+                        <p className="font-mono text-xl font-bold text-foreground">
+                            {session ? 1 : 0}
+                        </p>
                         <p className="font-mono text-[10px] text-muted-foreground uppercase">Active Channels</p>
                     </div>
                     <div className="text-center p-3 rounded-lg bg-secondary/30">
-                        <p className="font-mono text-xl font-bold text-primary">${totalChannelBalance.toLocaleString()}</p>
+                        <p className="font-mono text-xl font-bold text-primary">
+                           ${totalChannelBalance.toFixed(2)}
+                        </p>
                         <p className="font-mono text-[10px] text-muted-foreground uppercase">Channel Balance</p>
                     </div>
                     <div className="text-center p-3 rounded-lg bg-secondary/30">
-                        <p className="font-mono text-xl font-bold text-foreground">{sessionDuration}</p>
-                        <p className="font-mono text-[10px] text-muted-foreground uppercase">Session Time</p>
+                        <p className="font-mono text-xl font-bold text-foreground">
+                            {sessionDuration}
+                        </p>
+                        <p className="font-mono text-[10px] text-muted-foreground uppercase">Session State</p>
                     </div>
                 </div>
 
@@ -76,53 +98,79 @@ export function SessionManager() {
                 <div>
                     <div className="flex items-center justify-between mb-3">
                         <p className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
-                            Open Channels
+                            Active Session
                         </p>
-                        <button className="text-xs text-primary hover:underline flex items-center gap-1">
+                        <button 
+                            onClick={refreshSession}
+                            className="text-xs text-primary hover:underline flex items-center gap-1"
+                        >
                             <RefreshCw className="h-3 w-3" />
                             Refresh
                         </button>
                     </div>
 
                     <div className="space-y-2">
-                        {channels.map((channel) => (
-                            <div
-                                key={channel.id}
-                                className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-secondary/20 hover:bg-secondary/40 transition-colors"
-                            >
+                        {session ? (
+                            <div className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-secondary/20 hover:bg-secondary/40 transition-colors">
                                 <div className="flex items-center gap-3">
-                                    <div className={cn(
-                                        "h-2 w-2 rounded-full",
-                                        channel.status === "active" && "bg-green-500",
-                                        channel.status === "pending" && "bg-yellow-500 animate-pulse",
-                                        channel.status === "closed" && "bg-muted-foreground"
-                                    )} />
+                                    <div className="h-2 w-2 rounded-full bg-green-500" />
                                     <div>
-                                        <p className="text-sm font-medium">{channel.counterparty}</p>
-                                        <p className="font-mono text-xs text-muted-foreground">{channel.id}</p>
+                                        <p className="text-sm font-medium">Yellow Network Hub</p>
+                                        <p className="font-mono text-xs text-muted-foreground">{session.sessionId}</p>
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <p className="font-mono text-sm font-medium">${channel.balance.toFixed(2)}</p>
+                                    <p className="font-mono text-sm font-medium">
+                                        Collateral: ${(parseFloat(session.collateral)/1e6).toFixed(2)}
+                                    </p>
                                     <p className="flex items-center gap-1 text-xs text-muted-foreground">
                                         <Clock className="h-3 w-3" />
-                                        {channel.lastActivity}
+                                        Just now
                                     </p>
                                 </div>
                             </div>
-                        ))}
+                        ) : (
+                            <div className="p-4 text-center text-sm text-muted-foreground border border-dashed border-border/50 rounded-lg">
+                                No active sessions. Start one to begin trading.
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 {/* Actions */}
-                <div className="grid grid-cols-2 gap-3">
-                    <button className="py-3 rounded-lg border border-primary bg-primary/10 text-primary font-mono text-sm hover:bg-primary/20 transition-colors">
-                        Open Channel
+                {!isSessionActive ? (
+                    <div className="space-y-3">
+                        <div className="flex gap-2">
+                            <input 
+                                type="number" 
+                                value={amount}
+                                onChange={(e) => setAmount(e.target.value)}
+                                className="flex-1 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm font-mono"
+                                placeholder="Amount USDC"
+                            />
+                            <button 
+                                onClick={handleOpenChannel}
+                                disabled={isProcessing}
+                                className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
+                                Start Session
+                            </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center">
+                            Escrow Balance: {escrowBalance} USDC
+                        </p>
+                    </div>
+                ) : (
+                    <button 
+                        onClick={() => closeSession()}
+                        disabled={isProcessing}
+                        className="w-full py-3 rounded-lg border border-red-500/20 bg-red-500/10 text-red-500 font-mono text-sm hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
+                    >
+                        {isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
+                        Close Channel & Settle
                     </button>
-                    <button className="py-3 rounded-lg border border-border bg-secondary/50 text-foreground font-mono text-sm hover:bg-secondary transition-colors">
-                        Close All
-                    </button>
-                </div>
+                )}
             </div>
         </div>
     )

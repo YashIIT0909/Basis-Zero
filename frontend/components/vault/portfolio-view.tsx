@@ -1,36 +1,57 @@
 "use client"
 
-import { TrendingUp, Shield, DollarSign, Calendar } from "lucide-react"
+import { TrendingUp, Shield, DollarSign, Calendar, Lock, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useArcVault, SessionState } from "@/hooks/use-arc-vault"
 
-interface PortfolioViewProps {
-    principal?: number
-    currentYield?: number
-    apy?: number
-    depositDate?: string
-}
-
-import { useVaultBalance } from "@/hooks/use-vault-balance"
-
-export function PortfolioView({
-    // principal = 10000, // Removed default
-    // currentYield = 42.35, // Removed default
-    apy = 5.12,
-    depositDate = "Jan 15, 2026"
-}: PortfolioViewProps) {
-    const { principal, totalBalance, availableYield, isLoading } = useVaultBalance()
+export function PortfolioView() {
+    const { 
+        principal, 
+        totalBalance, 
+        accruedYield,
+        availableYield,
+        apyPercent,
+        apyBps,
+        depositTimestamp,
+        sessionState,
+        lockedAmount,
+        isLoading,
+        isConnected
+    } = useArcVault()
 
     const principalNum = parseFloat(principal)
-    const yieldNum = parseFloat(availableYield)
-    const totalNum = parseFloat(totalBalance) || (principalNum + yieldNum)
+    const yieldNum = parseFloat(accruedYield)
+    const totalNum = parseFloat(totalBalance)
+    const lockedNum = parseFloat(lockedAmount)
+    const apy = parseFloat(apyPercent) || 5.12
 
     const yieldPercentage = principalNum > 0 ? (yieldNum / principalNum) * 100 : 0
+    
+    // Format deposit date
+    const depositDate = depositTimestamp > 0 
+        ? new Date(depositTimestamp * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : "No deposits yet"
 
-    // Simulated historical yield data
-    const yieldHistory = [
-        { month: "Jan", yield: 12.5 },
-        { month: "Feb", yield: 42.35 },
-    ]
+    // Session state label
+    const getSessionLabel = () => {
+        switch (sessionState) {
+            case SessionState.PendingBridge: return "Pending Bridge"
+            case SessionState.Active: return "Session Active"
+            case SessionState.Settled: return "Settled"
+            case SessionState.Cancelled: return "Cancelled"
+            default: return null
+        }
+    }
+    const sessionLabel = getSessionLabel()
+
+    if (!isConnected) {
+        return (
+            <div className="rounded-xl border border-border bg-card/60 glass overflow-hidden p-8 text-center">
+                <Shield className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">Connect wallet to view portfolio</p>
+            </div>
+        )
+    }
 
     return (
         <div className="rounded-xl border border-border bg-card/60 glass overflow-hidden">
@@ -57,7 +78,13 @@ export function PortfolioView({
                         Total Portfolio Value
                     </p>
                     <p className="font-mono text-4xl font-bold">
-                        {isLoading ? "Loading..." : `$${totalNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        {isLoading ? (
+                            <span className="flex items-center justify-center gap-2">
+                                <Loader2 className="h-6 w-6 animate-spin" />
+                            </span>
+                        ) : (
+                            `$${totalNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        )}
                     </p>
                     <p className="mt-1 text-sm text-green-500">
                         +${yieldNum.toFixed(2)} ({yieldPercentage.toFixed(2)}%)
@@ -89,6 +116,23 @@ export function PortfolioView({
                     </div>
                 </div>
 
+                {/* Session State (if active) */}
+                {sessionLabel && (
+                    <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Lock className="h-4 w-4 text-yellow-500" />
+                                <span className="font-mono text-xs text-yellow-500 uppercase tracking-wider">
+                                    {sessionLabel}
+                                </span>
+                            </div>
+                            <span className="font-mono text-sm text-yellow-500">
+                                ${lockedNum.toFixed(2)} locked
+                            </span>
+                        </div>
+                    </div>
+                )}
+
                 {/* APY Display */}
                 <div className="rounded-lg border border-primary/30 bg-primary/10 p-4">
                     <div className="flex items-center justify-between">
@@ -97,33 +141,18 @@ export function PortfolioView({
                                 Current APY
                             </p>
                             <p className="font-mono text-2xl font-bold text-primary">{apy}%</p>
+                            <p className="font-mono text-[10px] text-muted-foreground mt-1">
+                                {apyBps} bps from contract
+                            </p>
                         </div>
                         <div className="text-right">
                             <p className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
                                 Daily Earnings
                             </p>
                             <p className="font-mono text-lg font-medium text-foreground">
-                                ${((principalNum * (apy / 100)) / 365).toFixed(2)}
+                                ${((principalNum * (apy / 100)) / 365).toFixed(4)}
                             </p>
                         </div>
-                    </div>
-                </div>
-
-                {/* Yield History */}
-                <div>
-                    <p className="font-mono text-xs text-muted-foreground uppercase tracking-wider mb-3">
-                        Yield History
-                    </p>
-                    <div className="space-y-2">
-                        {yieldHistory.map((entry, index) => (
-                            <div
-                                key={index}
-                                className="flex items-center justify-between py-2 border-b border-border/30 last:border-0"
-                            >
-                                <span className="text-sm text-muted-foreground">{entry.month} 2026</span>
-                                <span className="font-mono text-sm text-green-500">+${entry.yield.toFixed(2)}</span>
-                            </div>
-                        ))}
                     </div>
                 </div>
 
