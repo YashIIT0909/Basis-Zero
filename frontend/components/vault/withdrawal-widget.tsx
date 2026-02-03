@@ -1,35 +1,98 @@
 "use client"
 
-import { useState } from "react"
-import { ArrowUpRight, ChevronDown, CheckCircle, AlertCircle } from "lucide-react"
+import { useState, useEffect } from "react"
+import { ArrowUpRight, ChevronDown, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useArcVault, SessionState } from "@/hooks/use-arc-vault"
+import { useSwitchChain, useChainId } from "wagmi"
+import { arcTestnet } from "@/lib/wagmi"
 
 const chains = [
+    { id: "arc", name: "Arc Testnet", icon: "🔵", fee: "~$0.00", isDefault: true },
     { id: "ethereum", name: "Ethereum", icon: "🔷", fee: "~$5.00" },
     { id: "base", name: "Base", icon: "🔵", fee: "~$0.10" },
     { id: "arbitrum", name: "Arbitrum", icon: "🔶", fee: "~$0.30" },
     { id: "polygon", name: "Polygon", icon: "🟣", fee: "~$0.05" },
-    { id: "optimism", name: "Optimism", icon: "🔴", fee: "~$0.20" },
 ]
 
-interface WithdrawalWidgetProps {
-    availableBalance?: number
-}
+export function WithdrawalWidget() {
+    const {
+        totalBalance,
+        principal,
+        accruedYield,
+        sessionState,
+        isConnected,
+        isLoading,
+        withdraw,
+        isWithdrawing,
+        isWithdrawSuccess,
+        withdrawError,
+        refetch
+    } = useArcVault()
 
-export function WithdrawalWidget({ availableBalance = 10042.35 }: WithdrawalWidgetProps) {
-    const [selectedChain, setSelectedChain] = useState(chains[1])
+    const chainId = useChainId()
+    const { switchChain } = useSwitchChain()
+
+    const [selectedChain, setSelectedChain] = useState(chains[0])
     const [amount, setAmount] = useState("")
     const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-    const [isProcessing, setIsProcessing] = useState(false)
+    const [showSuccess, setShowSuccess] = useState(false)
+
+    const availableBalance = parseFloat(totalBalance) || 0
+    const principalNum = parseFloat(principal) || 0
+    const yieldNum = parseFloat(accruedYield) || 0
+
+    // Check if user has active session (cannot withdraw during session)
+    const hasActiveSession = sessionState === SessionState.PendingBridge || sessionState === SessionState.Active
 
     const handleWithdraw = () => {
-        setIsProcessing(true)
-        // Simulate processing
-        setTimeout(() => setIsProcessing(false), 2000)
+        if (!isConnected) return
+        
+        // Check chain
+        if (chainId !== arcTestnet.id) {
+            switchChain({ chainId: arcTestnet.id })
+            return
+        }
+
+        withdraw(amount)
     }
 
+    // Show success state
+    useEffect(() => {
+        if (isWithdrawSuccess) {
+            setShowSuccess(true)
+            refetch()
+            setTimeout(() => {
+                setShowSuccess(false)
+                setAmount("")
+            }, 3000)
+        }
+    }, [isWithdrawSuccess, refetch])
+
     const withdrawAmount = parseFloat(amount) || 0
-    const isValidAmount = withdrawAmount > 0 && withdrawAmount <= availableBalance
+    const isValidAmount = withdrawAmount > 0 && withdrawAmount <= availableBalance && !hasActiveSession
+    const isWithdrawingPrincipal = withdrawAmount > yieldNum
+
+    if (!isConnected) {
+        return (
+            <div className="rounded-xl border border-border bg-card/60 glass overflow-hidden p-8 text-center">
+                <ArrowUpRight className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">Connect wallet to withdraw</p>
+            </div>
+        )
+    }
+
+    if (showSuccess) {
+        return (
+            <div className="rounded-xl border border-border bg-card/60 glass overflow-hidden p-8 text-center space-y-4">
+                <div className="h-16 w-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto text-green-500">
+                    <CheckCircle className="h-8 w-8" />
+                </div>
+                <h3 className="text-xl font-bold">Withdrawal Submitted!</h3>
+                <p className="text-muted-foreground">Your withdrawal of ${withdrawAmount.toFixed(2)} is processing.</p>
+            </div>
+        )
+    }
 
     return (
         <div className="rounded-xl border border-border bg-card/60 glass overflow-hidden">
@@ -43,7 +106,7 @@ export function WithdrawalWidget({ availableBalance = 10042.35 }: WithdrawalWidg
                         </h3>
                     </div>
                     <span className="font-mono text-[10px] text-muted-foreground">
-                        Circle CCTP
+                        Arc Vault
                     </span>
                 </div>
             </div>
@@ -55,9 +118,26 @@ export function WithdrawalWidget({ availableBalance = 10042.35 }: WithdrawalWidg
                         Available to Withdraw
                     </p>
                     <p className="font-mono text-2xl font-bold">
-                        ${availableBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {isLoading ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                            `$${availableBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                        )}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        Principal: ${principalNum.toFixed(2)} | Yield: ${yieldNum.toFixed(2)}
                     </p>
                 </div>
+
+                {/* Active Session Warning */}
+                {hasActiveSession && (
+                    <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+                        <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                        <p className="text-xs text-red-400">
+                            Withdrawals are disabled during active Yellow sessions. Close your session first.
+                        </p>
+                    </div>
+                )}
 
                 {/* Amount Input */}
                 <div className="space-y-2">
@@ -70,7 +150,8 @@ export function WithdrawalWidget({ availableBalance = 10042.35 }: WithdrawalWidg
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
                             placeholder="0.00"
-                            className="w-full rounded-lg border border-border bg-secondary/50 px-4 py-3 pr-20 font-mono text-xl focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                            disabled={hasActiveSession || isWithdrawing}
+                            className="w-full rounded-lg border border-border bg-secondary/50 px-4 py-3 pr-20 font-mono text-xl focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
                         />
                         <div className="absolute right-4 top-1/2 -translate-y-1/2">
                             <span className="font-mono text-sm text-muted-foreground">USDC</span>
@@ -79,62 +160,11 @@ export function WithdrawalWidget({ availableBalance = 10042.35 }: WithdrawalWidg
                     <div className="flex items-center justify-end">
                         <button
                             onClick={() => setAmount(availableBalance.toString())}
-                            className="text-xs text-primary hover:underline"
+                            disabled={hasActiveSession}
+                            className="text-xs text-primary hover:underline disabled:opacity-50"
                         >
                             Withdraw Max
                         </button>
-                    </div>
-                </div>
-
-                {/* Destination Chain */}
-                <div className="space-y-2">
-                    <label className="block font-mono text-xs text-muted-foreground uppercase tracking-wider">
-                        Destination Chain
-                    </label>
-                    <div className="relative">
-                        <button
-                            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                            className="w-full flex items-center justify-between rounded-lg border border-border bg-secondary/50 px-4 py-3 text-left hover:border-primary/50 transition-colors"
-                        >
-                            <div className="flex items-center gap-3">
-                                <span className="text-lg">{selectedChain.icon}</span>
-                                <div>
-                                    <p className="font-medium text-sm">{selectedChain.name}</p>
-                                    <p className="text-xs text-muted-foreground">Est. fee: {selectedChain.fee}</p>
-                                </div>
-                            </div>
-                            <ChevronDown className={cn(
-                                "h-4 w-4 text-muted-foreground transition-transform",
-                                isDropdownOpen && "rotate-180"
-                            )} />
-                        </button>
-
-                        {isDropdownOpen && (
-                            <div className="absolute top-full left-0 right-0 mt-2 rounded-lg border border-border bg-card shadow-lg z-10">
-                                {chains.map((chain) => (
-                                    <button
-                                        key={chain.id}
-                                        onClick={() => {
-                                            setSelectedChain(chain)
-                                            setIsDropdownOpen(false)
-                                        }}
-                                        className={cn(
-                                            "w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-secondary/50 transition-colors first:rounded-t-lg last:rounded-b-lg",
-                                            selectedChain.id === chain.id && "bg-primary/10"
-                                        )}
-                                    >
-                                        <span className="text-lg">{chain.icon}</span>
-                                        <div className="flex-1">
-                                            <p className="font-medium text-sm">{chain.name}</p>
-                                            <p className="text-xs text-muted-foreground">Est. fee: {chain.fee}</p>
-                                        </div>
-                                        {selectedChain.id === chain.id && (
-                                            <CheckCircle className="h-4 w-4 text-primary" />
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
                     </div>
                 </div>
 
@@ -146,18 +176,30 @@ export function WithdrawalWidget({ availableBalance = 10042.35 }: WithdrawalWidg
                             <span className="font-mono font-medium">${withdrawAmount.toLocaleString()} USDC</span>
                         </div>
                         <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Network fee</span>
-                            <span className="font-mono">{selectedChain.fee}</span>
+                            <span className="text-muted-foreground">From yield</span>
+                            <span className="font-mono text-green-500">${Math.min(withdrawAmount, yieldNum).toFixed(2)}</span>
                         </div>
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Destination</span>
-                            <span className="font-mono">{selectedChain.name}</span>
-                        </div>
+                        {isWithdrawingPrincipal && (
+                            <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">From principal</span>
+                                <span className="font-mono text-blue-500">${(withdrawAmount - yieldNum).toFixed(2)}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Error Display */}
+                {withdrawError && (
+                    <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+                        <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                        <p className="text-xs text-red-400">
+                            {withdrawError.message.split('\n')[0]}
+                        </p>
                     </div>
                 )}
 
                 {/* Warning for principal withdrawal */}
-                {withdrawAmount > 42.35 && (
+                {isWithdrawingPrincipal && withdrawAmount > 0 && (
                     <div className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3">
                         <AlertCircle className="h-4 w-4 text-yellow-500 shrink-0 mt-0.5" />
                         <p className="text-xs text-yellow-200">
@@ -169,15 +211,24 @@ export function WithdrawalWidget({ availableBalance = 10042.35 }: WithdrawalWidg
                 {/* Withdraw Button */}
                 <button
                     onClick={handleWithdraw}
-                    disabled={!isValidAmount || isProcessing}
+                    disabled={!isValidAmount || isWithdrawing}
                     className={cn(
-                        "w-full py-4 rounded-lg font-mono text-sm font-medium transition-all",
+                        "w-full py-4 rounded-lg font-mono text-sm font-medium transition-all flex items-center justify-center gap-2",
                         isValidAmount
                             ? "bg-primary hover:bg-primary/90 text-primary-foreground"
                             : "bg-secondary text-muted-foreground cursor-not-allowed"
                     )}
                 >
-                    {isProcessing ? "Processing..." : "Withdraw to " + selectedChain.name}
+                    {isWithdrawing ? (
+                        <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Processing...
+                        </>
+                    ) : chainId !== arcTestnet.id ? (
+                        "Switch to Arc Testnet"
+                    ) : (
+                        "Withdraw"
+                    )}
                 </button>
             </div>
         </div>

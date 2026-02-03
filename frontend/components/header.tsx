@@ -1,11 +1,11 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion, Variants, AnimatePresence } from 'framer-motion'
 import { Home, TrendingUp, Vault, User, Wallet, ChevronDown, LogOut, Copy, ExternalLink, Check } from 'lucide-react'
-import { useWallet } from '@/hooks/use-wallet'
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 
 // Navigation items for Basis Zero
 interface NavMenuItem {
@@ -79,46 +79,12 @@ const sharedTransition = {
 
 export function Header(): React.JSX.Element {
     const pathname = usePathname()
-    const { address, isConnected, isConnecting, connect, disconnect, formatAddress, chainId } = useWallet()
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-    const [copied, setCopied] = useState(false)
 
-    // Copy address to clipboard
-    const handleCopyAddress = async () => {
-        if (address) {
-            await navigator.clipboard.writeText(address)
-            setCopied(true)
-            setTimeout(() => setCopied(false), 2000)
-        }
-    }
-
-    // Get block explorer URL based on chain
-    const getExplorerUrl = () => {
-        const explorers: Record<number, string> = {
-            1: 'https://etherscan.io',
-            11155111: 'https://sepolia.etherscan.io',
-            137: 'https://polygonscan.com',
-            80001: 'https://mumbai.polygonscan.com',
-            42161: 'https://arbiscan.io',
-            10: 'https://optimistic.etherscan.io',
-            8453: 'https://basescan.org',
-        }
-        return explorers[chainId || 1] || 'https://etherscan.io'
-    }
-
-    // Get chain name
-    const getChainName = () => {
-        const chains: Record<number, string> = {
-            1: 'Ethereum',
-            11155111: 'Sepolia',
-            137: 'Polygon',
-            80001: 'Mumbai',
-            42161: 'Arbitrum',
-            10: 'Optimism',
-            8453: 'Base',
-        }
-        return chains[chainId || 1] || `Chain ${chainId}`
-    }
+    const [mounted, setMounted] = useState(false)
+    
+    useEffect(() => {
+        setMounted(true)
+    }, [])
 
     return (
         <header className="fixed top-0 left-0 w-full z-50">
@@ -219,144 +185,14 @@ export function Header(): React.JSX.Element {
 
                         {/* Connect Wallet Button */}
                         <div className="relative">
-                            {isConnected ? (
-                                <>
-                                    <motion.button
-                                        className="group relative flex items-center gap-2 px-4 py-2 rounded-xl
-                                            bg-green-500/10 border border-green-500/30
-                                            text-green-400 font-medium text-sm
-                                            overflow-hidden cursor-pointer"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
-                                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                                    >
-                                        {/* Connected indicator dot */}
-                                        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                                        <span className="hidden sm:inline">{formatAddress(address!)}</span>
-                                        <ChevronDown
-                                            className={`h-4 w-4 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`}
-                                        />
-                                    </motion.button>
-
-                                    {/* Dropdown Menu */}
-                                    <AnimatePresence>
-                                        {isDropdownOpen && (
-                                            <>
-                                                {/* Backdrop */}
-                                                <div
-                                                    className="fixed inset-0 z-40"
-                                                    onClick={() => setIsDropdownOpen(false)}
-                                                />
-
-                                                <motion.div
-                                                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                                                    transition={{ duration: 0.15 }}
-                                                    className="absolute right-0 mt-2 w-64 z-50 
-                                                        bg-black/90 backdrop-blur-xl 
-                                                        border border-white/10 rounded-xl 
-                                                        shadow-2xl shadow-black/50 overflow-hidden"
-                                                >
-                                                    {/* Wallet Info Header */}
-                                                    <div className="px-4 py-3 border-b border-white/10">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-8 h-8 rounded-full bg-linear-to-br from-primary to-cyan-400 flex items-center justify-center">
-                                                                <Wallet className="h-4 w-4 text-white" />
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-sm font-medium text-foreground">
-                                                                    {formatAddress(address!)}
-                                                                </p>
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    {getChainName()}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Menu Items */}
-                                                    <div className="py-2">
-                                                        <button
-                                                            onClick={handleCopyAddress}
-                                                            className="w-full flex items-center gap-3 px-4 py-2.5 
-                                                                text-sm text-muted-foreground 
-                                                                hover:text-foreground hover:bg-white/5 
-                                                                transition-colors"
-                                                        >
-                                                            {copied ? (
-                                                                <Check className="h-4 w-4 text-green-400" />
-                                                            ) : (
-                                                                <Copy className="h-4 w-4" />
-                                                            )}
-                                                            <span>{copied ? 'Copied!' : 'Copy Address'}</span>
-                                                        </button>
-
-                                                        <a
-                                                            href={`${getExplorerUrl()}/address/${address}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="w-full flex items-center gap-3 px-4 py-2.5 
-                                                                text-sm text-muted-foreground 
-                                                                hover:text-foreground hover:bg-white/5 
-                                                                transition-colors"
-                                                            onClick={() => setIsDropdownOpen(false)}
-                                                        >
-                                                            <ExternalLink className="h-4 w-4" />
-                                                            <span>View on Explorer</span>
-                                                        </a>
-
-                                                        <div className="my-2 border-t border-white/10" />
-
-                                                        <button
-                                                            onClick={() => {
-                                                                disconnect()
-                                                                setIsDropdownOpen(false)
-                                                            }}
-                                                            className="w-full flex items-center gap-3 px-4 py-2.5 
-                                                                text-sm text-red-400 
-                                                                hover:text-red-300 hover:bg-red-500/10 
-                                                                transition-colors"
-                                                        >
-                                                            <LogOut className="h-4 w-4" />
-                                                            <span>Disconnect</span>
-                                                        </button>
-                                                    </div>
-                                                </motion.div>
-                                            </>
-                                        )}
-                                    </AnimatePresence>
-                                </>
-                            ) : (
-                                <motion.button
-                                    className="group relative flex items-center gap-2 px-4 py-2 rounded-xl
-                                        bg-primary/10 border border-primary/30
-                                        text-primary font-medium text-sm
-                                        overflow-hidden cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    onClick={connect}
-                                    disabled={isConnecting}
-                                >
-                                    {/* Animated gradient background on hover */}
-                                    <motion.div
-                                        className="absolute inset-0 bg-linear-to-r from-primary to-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                                    />
-                                    {isConnecting ? (
-                                        <>
-                                            <div className="h-4 w-4 relative z-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                                            <span className="hidden sm:inline relative z-10">Connecting...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Wallet className="h-4 w-4 relative z-10 group-hover:text-primary-foreground transition-colors" />
-                                            <span className="hidden sm:inline relative z-10 group-hover:text-primary-foreground transition-colors">
-                                                Connect Wallet
-                                            </span>
-                                        </>
-                                    )}
-                                </motion.button>
-                            )}
+                            {mounted && <ConnectButton 
+                                accountStatus={{
+                                    smallScreen: 'avatar',
+                                    largeScreen: 'full',
+                                }}
+                                showBalance={false}
+                                chainStatus="icon"
+                            />}
                         </div>
                     </div>
                 </motion.nav>
