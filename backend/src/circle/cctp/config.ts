@@ -1,57 +1,37 @@
 /**
- * Circle Gateway Configuration
+ * CCTP Configuration
  * 
- * Contract addresses and chain configuration for cross-chain USDC transfers.
- * @see https://developers.circle.com/gateway
+ * Contract addresses and chain configuration for CCTP cross-chain USDC transfers.
  */
 
 import type { Address } from 'viem';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CONTRACT ADDRESSES
+// CCTP CONTRACT ADDRESSES
 // ═══════════════════════════════════════════════════════════════════════════
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CONTRACT ADDRESSES
-// ═══════════════════════════════════════════════════════════════════════════
-
-// Gateway contract addresses (same on all chains for Gateway usage)
-export const GATEWAY_WALLET_ADDRESS: Address = '0x0077777d7EBA4688BDeF3E311b846F25870A19B9';
-export const GATEWAY_MINTER_ADDRESS: Address = '0x0022222ABE238Cc2C7Bb1f21003F0a260052475B';
-export const ARC_VAULT_ADDRESS: Address = '0x49E4177eA6F21Cc5673bDc0b09507C5648fd53a3';
 
 // CCTP Contract Addresses (TokenMessenger & MessageTransmitter)
+// NOTE: Arc uses CCTP V2, so we need V2 contracts for all chains bridging to/from Arc
 export const CCTP_CONTRACTS = {
   arcTestnet: {
-    tokenMessenger: '0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA',
-    messageTransmitter: '0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275',
+    tokenMessenger: '0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA' as Address,  // V2
+    messageTransmitter: '0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275' as Address,  // V2
   },
   polygonAmoy: {
-    tokenMessenger: '0x9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5',
-    messageTransmitter: '0xE997d7d2F6E065a9A93Fa2175E878Fb9081F1f0A',
+    tokenMessenger: '0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA' as Address,  // V2 - required for Arc
+    messageTransmitter: '0x7b5C8aB9E6B055A63e5df6248b1357dD10aa0791' as Address,  // V2
   },
   sepolia: {
-    tokenMessenger: '0x9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5',
-    messageTransmitter: '0x7865fAfC2db2093669d92c0F33AeEF291086BEFD',
+    tokenMessenger: '0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA' as Address,  // V2 - required for Arc
+    messageTransmitter: '0xbaC0179bB358A8936169a63408C8481D582390C4' as Address,  // V2
   },
 } as const;
-
-// ═══════════════════════════════════════════════════════════════════════════
-// API ENDPOINTS
-// ═══════════════════════════════════════════════════════════════════════════
-
-export const GATEWAY_API = {
-  testnet: 'https://gateway-api-testnet.circle.com/v1',
-  mainnet: 'https://gateway-api.circle.com/v1',
-} as const;
-
-export type NetworkType = keyof typeof GATEWAY_API;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DOMAIN IDS
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Domain IDs for CCTP/Gateway
+// Domain IDs for CCTP
 export const DOMAINS = {
   ethereum: 0,
   mainnet: 0,
@@ -84,9 +64,6 @@ export const CHAIN_NAMES: Record<number, string> = {
   7: 'Polygon',
   26: 'Arc',
 };
-
-// EVM-compatible domains only (exclude Solana=5, Noble=4)
-export const EVM_DOMAINS = [0, 1, 6, 26] as const;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // USDC ADDRESSES
@@ -124,19 +101,18 @@ export const RPC_URLS_TESTNET: Record<string, string> = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// HELPER FUNCTIONS
+// IRIS API (Circle Attestation Service)
 // ═══════════════════════════════════════════════════════════════════════════
 
-export interface GatewayConfig {
-  apiUrl: string;
-  usdcAddresses: Record<string, Address>;
-  rpcUrls: Record<string, string>;
-}
+export const IRIS_API = {
+  testnet: 'https://iris-api-sandbox.circle.com',
+  mainnet: 'https://iris-api.circle.com',
+} as const;
 
-export function getConfig(network: NetworkType = 'testnet'): GatewayConfig {
-  return {
-    apiUrl: GATEWAY_API[network],
-    usdcAddresses: network === 'mainnet' ? USDC_ADDRESSES_MAINNET : USDC_ADDRESSES_TESTNET,
-    rpcUrls: RPC_URLS_TESTNET,
-  };
-}
+export type NetworkType = keyof typeof IRIS_API;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ARC YIELD VAULT
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const ARC_VAULT_ADDRESS = '0x49E4177eA6F21Cc5673bDc0b09507C5648fd53a3' as Address;

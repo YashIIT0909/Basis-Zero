@@ -1,5 +1,6 @@
 "use client"
 
+import { useRef, useState, useCallback } from "react"
 import { Wallet, TrendingUp, Zap } from "lucide-react"
 
 const steps = [
@@ -9,7 +10,6 @@ const steps = [
         title: "Deposit USDC",
         subtitle: "Circle Arc",
         description: "Cross-chain deposit via Circle's CCTP from any supported chain",
-        accent: "from-blue-500 to-cyan-500",
     },
     {
         step: 2,
@@ -17,7 +17,6 @@ const steps = [
         title: "Earn RWA Yield",
         subtitle: "BlackRock BUIDL",
         description: "Your USDC earns institutional-grade yield from tokenized T-Bills",
-        accent: "from-green-500 to-emerald-500",
     },
     {
         step: 3,
@@ -25,11 +24,23 @@ const steps = [
         title: "Trade with Yield",
         subtitle: "Yellow Network",
         description: "Use accrued yield for instant, off-chain prediction market trading",
-        accent: "from-yellow-500 to-orange-500",
     },
 ]
 
 export function HowItWorks() {
+    const headingRef = useRef<HTMLHeadingElement>(null)
+    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+    const [isHovering, setIsHovering] = useState(false)
+
+    const handleMouseMove = useCallback((e: React.MouseEvent<HTMLHeadingElement>) => {
+        if (!headingRef.current) return
+        const rect = headingRef.current.getBoundingClientRect()
+        setMousePosition({
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+        })
+    }, [])
+
     return (
         <section id="how-it-works" className="px-4 sm:px-6 py-20 sm:py-28">
             <div className="mx-auto max-w-6xl">
@@ -37,10 +48,32 @@ export function HowItWorks() {
                     <p className="font-mono text-xs uppercase tracking-[0.25em] sm:tracking-[0.35em] text-primary">
                         How It Works
                     </p>
-                    <h2 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
-                        Zero Opportunity Cost,{" "}
-                        <span className="bg-linear-to-l from-primary/50 to-accent text-transparent bg-clip-text">
-                            Maximum Returns
+                    <h2
+                        ref={headingRef}
+                        onMouseMove={handleMouseMove}
+                        onMouseEnter={() => setIsHovering(true)}
+                        onMouseLeave={() => setIsHovering(false)}
+                        className="relative text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl cursor-default overflow-hidden"
+                    >
+                        {/* Base text layer */}
+                        <span className="relative z-10">
+                            Zero Opportunity Cost,{" "}
+                            <span className="bg-linear-to-r from-primary via-cyan-400 to-primary text-transparent bg-clip-text">
+                                Maximum Returns
+                            </span>
+                        </span>
+
+                        {/* Mouse-following spotlight gradient overlay */}
+                        <span
+                            className="absolute inset-0 z-20 bg-linear-to-r from-cyan-400 via-primary to-cyan-400 text-transparent bg-clip-text transition-opacity duration-300 pointer-events-none"
+                            style={{
+                                opacity: isHovering ? 1 : 0,
+                                maskImage: `radial-gradient(circle 350px at ${mousePosition.x}px ${mousePosition.y}px, black 0%, transparent 100%)`,
+                                WebkitMaskImage: `radial-gradient(circle 350px at ${mousePosition.x}px ${mousePosition.y}px, black 0%, transparent 100%)`,
+                            }}
+                        >
+                            Zero Opportunity Cost,{" "}
+                            <span>Maximum Returns</span>
                         </span>
                     </h2>
                     <p className="max-w-2xl mx-auto text-base sm:text-lg text-muted-foreground">
@@ -55,14 +88,14 @@ export function HowItWorks() {
                             className="group relative overflow-hidden rounded-xl border border-border/60 bg-card/40 p-6 sm:p-8 glass transition-all duration-400 hover-lift hover:border-primary/40 hover:bg-card/70 animate-fade-in-up"
                             style={{ animationDelay: `${index * 150}ms` }}
                         >
-                            {/* Step number */}
-                            <div className="absolute -right-4 -top-4 font-mono text-8xl font-bold text-primary/5 select-none">
+                            {/* Step number with gradient */}
+                            <div className="absolute -right-4 -top-4 font-mono text-8xl font-bold bg-linear-to-br from-primary/20 via-cyan-400/15 to-transparent text-transparent bg-clip-text select-none">
                                 {step.step}
                             </div>
 
                             {/* Icon */}
-                            <div className={`mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-linear-to-br ${step.accent} shadow-lg transition-transform duration-300 group-hover:scale-110`}>
-                                <step.icon className="h-7 w-7 text-white" />
+                            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-card border border-border/60 shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:border-primary/40">
+                                <step.icon className="h-7 w-7 text-primary" />
                             </div>
 
                             {/* Content */}
@@ -90,7 +123,7 @@ export function HowItWorks() {
                             )}
 
                             {/* Bottom accent */}
-                            <div className="absolute bottom-0 left-0 h-1 w-0 bg-linear-to-r from-primary via-primary/80 to-transparent transition-all duration-500 group-hover:w-full" />
+                            <div className="absolute bottom-0 left-0 h-1 w-0 bg-linear-to-r from-primary via-cyan-400 to-transparent transition-all duration-500 group-hover:w-full" />
                         </div>
                     ))}
                 </div>
@@ -100,9 +133,9 @@ export function HowItWorks() {
                     <p className="mb-4 text-sm text-muted-foreground font-mono">
                         Your principal is never at risk. Only yield is used for trading.
                     </p>
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/10">
-                        <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                        <span className="font-mono text-xs text-primary uppercase tracking-wider">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-linear-to-r from-primary/10 to-cyan-400/10">
+                        <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                        <span className="font-mono text-xs bg-linear-to-r from-primary to-cyan-400 text-transparent bg-clip-text uppercase tracking-wider font-semibold">
                             Delta-Neutral Yield Strategy
                         </span>
                     </div>
