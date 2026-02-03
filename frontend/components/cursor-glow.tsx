@@ -44,8 +44,8 @@ export function CursorGlow() {
           left: position.x,
           top: position.y,
           opacity: isVisible ? 1 : 0,
-          width: isHovering ? "500px" : "400px",
-          height: isHovering ? "500px" : "400px",
+          width: isHovering ? "700px" : "600px",
+          height: isHovering ? "700px" : "600px",
           transition: "opacity 0.4s ease, width 0.3s ease, height 0.3s ease",
           transform: "translate(-50%, -50%)",
         }}
