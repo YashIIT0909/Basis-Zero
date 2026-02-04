@@ -1,56 +1,37 @@
 /**
- * AMM Markets API Route
- * 
- * GET: List all active markets
- * POST: Create a new market
+ * AMM Markets API Route - Proxies to Backend
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createMarketPersistent, getMarketsPersistent } from '@/lib/amm/persistent-pool-manager';
+
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
 
 export async function GET() {
     try {
-        const markets = await getMarketsPersistent();
-
-        return NextResponse.json({ markets });
+        const response = await fetch(`${BACKEND_URL}/api/amm/markets`);
+        const data = await response.json();
+        return NextResponse.json(data);
     } catch (error) {
-        console.error('[AMM Markets] Error:', error);
-        return NextResponse.json(
-            { error: 'Failed to fetch markets', markets: [] },
-            { status: 200 }
-        );
+        console.error('[AMM Markets] Backend error:', error);
+        return NextResponse.json({ markets: [] }, { status: 200 });
     }
 }
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { marketId, title, description, initialLiquidity, expiresAt } = body;
 
-        if (!marketId || !initialLiquidity) {
-            return NextResponse.json(
-                { error: 'Missing required parameters: marketId, initialLiquidity' },
-                { status: 400 }
-            );
-        }
-
-        const market = await createMarketPersistent({
-            marketId,
-            title: title || marketId,
-            description,
-            initialLiquidity: BigInt(initialLiquidity),
-            expiresAt: expiresAt ? new Date(expiresAt) : undefined
+        // Backend expects 'create' endpoint for POST
+        const response = await fetch(`${BACKEND_URL}/api/amm/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
         });
 
-        return NextResponse.json({
-            success: true,
-            market
-        });
+        const data = await response.json();
+        return NextResponse.json(data, { status: response.status });
     } catch (error) {
-        console.error('[AMM Create Market] Error:', error);
-        return NextResponse.json(
-            { error: String(error) },
-            { status: 500 }
-        );
+        console.error('[AMM Create Market] Backend error:', error);
+        return NextResponse.json({ error: 'Backend unavailable' }, { status: 503 });
     }
 }

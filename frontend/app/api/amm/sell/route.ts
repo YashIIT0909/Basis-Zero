@@ -1,44 +1,34 @@
 /**
- * AMM Sell API Route
- * 
- * POST: Sell a position back to the pool
+ * AMM Sell API Route - Proxies to Backend
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { sellPositionPersistent } from '@/lib/amm/persistent-pool-manager';
-import { Outcome } from '@/lib/amm/types';
+
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const { marketId, userId, amount, outcome } = body;
 
-        if (!marketId || !userId || !amount || outcome === undefined) {
-            return NextResponse.json(
-                { error: 'Missing required parameters: marketId, userId, amount, outcome' },
-                { status: 400 }
-            );
-        }
+        // Backend expects outcome as a number (0 for YES, 1 for NO)
+        const outcomeNum = outcome === 'YES' ? 0 : 1;
 
-        const outcomeEnum = outcome === 'YES' || outcome === Outcome.YES ? Outcome.YES : Outcome.NO;
-
-        const result = await sellPositionPersistent(
-            marketId,
-            userId,
-            BigInt(amount),
-            outcomeEnum
-        );
-
-        return NextResponse.json({
-            success: true,
-            usdcOut: result.usdcOut.toString(),
-            priceImpact: result.priceImpact
+        const response = await fetch(`${BACKEND_URL}/api/amm/sell`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                marketId,
+                userId,
+                amount,
+                outcome: outcomeNum
+            }),
         });
+
+        const data = await response.json();
+        return NextResponse.json(data, { status: response.status });
     } catch (error) {
-        console.error('[AMM Sell] Error:', error);
-        return NextResponse.json(
-            { error: String(error) },
-            { status: 500 }
-        );
+        console.error('[AMM Sell] Backend error:', error);
+        return NextResponse.json({ error: 'Backend unavailable' }, { status: 503 });
     }
 }

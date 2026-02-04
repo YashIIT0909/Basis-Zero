@@ -6,7 +6,7 @@ import { MarketGrid } from "@/components/trade/market-grid"
 import { OrderBook } from "@/components/trade/order-book"
 import { CreateMarketDialog, CreateMarketButton } from "@/components/trade/create-market-dialog"
 import { useMarkets } from "@/hooks/use-amm"
-import type { Market } from "@/lib/amm/types"
+import type { Market } from "@/lib/amm-types"
 
 export default function TradePage() {
     const [safeModeEnabled, setSafeModeEnabled] = useState(true)

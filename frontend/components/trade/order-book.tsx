@@ -4,8 +4,8 @@ import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { Loader2, Check, AlertCircle } from "lucide-react"
 import { useQuote, usePlaceBet, usePosition } from "@/hooks/use-amm"
-import { Outcome, parseUSDCInput, formatUSDC } from "@/lib/amm/types"
-import type { Market } from "@/lib/amm/types"
+import { Outcome, formatUSDC, parseUSDCInput } from "@/lib/amm-types"
+import type { Market, Position } from "@/lib/amm-types"
 
 interface OrderBookProps {
     selectedMarket?: Market | null

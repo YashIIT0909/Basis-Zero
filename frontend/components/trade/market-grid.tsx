@@ -4,8 +4,8 @@ import { useState, useEffect } from "react"
 import { TrendingUp, Cloud, Bitcoin, Landmark, Users, Clock, Loader2, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useMarkets } from "@/hooks/use-amm"
-import type { Market } from "@/lib/amm/types"
-import { formatUSDC } from "@/lib/amm/types"
+import { formatUSDC } from "@/lib/amm-types"
+import type { Market } from "@/lib/amm-types"
 
 const categories = [
     { id: "all", label: "All Markets", icon: TrendingUp },

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Plus, X, Loader2, CheckCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useCreateMarket } from "@/hooks/use-amm"
-import { parseUSDCInput } from "@/lib/amm/types"
+import { Outcome, parseUSDCInput } from "@/lib/amm-types"
 
 interface CreateMarketDialogProps {
     isOpen: boolean

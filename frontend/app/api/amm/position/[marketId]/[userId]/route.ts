@@ -1,11 +1,10 @@
 /**
- * AMM Position API Route
- * 
- * GET: Get user's position in a market
+ * AMM Position API Route - Proxies to Backend
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getPositionPersistent } from '@/lib/amm/persistent-pool-manager';
+
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
 
 export async function GET(
     request: NextRequest,
@@ -14,14 +13,14 @@ export async function GET(
     try {
         const { marketId, userId } = await params;
 
-        const position = await getPositionPersistent(marketId, userId);
-
-        return NextResponse.json({ position });
-    } catch (error) {
-        console.error('[AMM Position] Error:', error);
-        return NextResponse.json(
-            { error: String(error), position: null },
-            { status: 200 }
+        const response = await fetch(
+            `${BACKEND_URL}/api/amm/position/${marketId}/${userId}`
         );
+
+        const data = await response.json();
+        return NextResponse.json(data);
+    } catch (error) {
+        console.error('[AMM Position] Backend error:', error);
+        return NextResponse.json({ position: null }, { status: 200 });
     }
 }

@@ -5,14 +5,14 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Outcome } from '@/lib/amm/types';
+import { Outcome } from '@/lib/amm-types';
 import type {
     Market,
     BetQuote,
     BetResult,
     SellResult,
     Position
-} from '@/lib/amm/types';
+} from '@/lib/amm-types';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // QUERY KEYS
