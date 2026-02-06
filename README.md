@@ -149,7 +149,7 @@ sequenceDiagram
 │ Enforced Session State:                      │
 │                                              │
 │ principal_locked = deposit                   │
-│ yield_accrued = P × r × Δt                   │
+│ yield_accrued = P × r × Δt (contract)        │
 │ pnl = realized bet results                   │
 │ max_loss = yield_accrued                     │
 │                                              │
