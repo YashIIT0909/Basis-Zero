@@ -13,6 +13,8 @@ import type {
     SellResult,
     Position
 } from '@/lib/amm-types';
+import { yellowClientManager } from '@/lib/yellow-client';
+import { type Hex, keccak256, encodePacked } from 'viem';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // QUERY KEYS
@@ -84,20 +86,59 @@ async function fetchPosition(
 async function placeBet(params: {
     marketId: string;
     userId: string;
+    sessionId: string;
     amount: string;
     outcome: Outcome;
 }): Promise<BetResult> {
+    
+    // 1. Try to sign with Session Key
+    let signature: Hex | undefined;
+    let signedState: Hex | undefined;
+    
+    const client = yellowClientManager.getClient();
+    const signerAddress = yellowClientManager.getSignerAddress();
+
+    if (client && signerAddress) {
+        // Create a representation of the state transition
+        // In full implementation, this would be the actual Nitrolite 'State' object
+        // encoded with ABI. For now, we sign the intent.
+        const intentHash = keccak256(
+            encodePacked(
+                ['string', 'string', 'uint256', 'uint8'],
+                [
+                    params.marketId,
+                    params.userId,
+                    BigInt(params.amount),
+                    params.outcome === Outcome.YES ? 0 : 1
+                ]
+            )
+        );
+        
+        // Sign the intent
+        try {
+            signature = await yellowClientManager.signMessage(intentHash);
+        } catch (e) {
+            console.warn("Failed to sign bet with session key:", e);
+        }
+    }
+
     const response = await fetch('/api/amm/bet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
+        body: JSON.stringify({
+            ...params,
+            signature,
+            signerAddress // Send who signed it
+        }),
     });
+
     if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to place bet');
     }
     return response.json();
 }
+
 
 async function sellPosition(params: {
     marketId: string;

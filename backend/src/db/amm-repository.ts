@@ -318,6 +318,22 @@ export async function updateSessionBalance(
     if (error) throw new Error(`Failed to update session: ${error.message}`);
 }
 
+export async function updateSessionKey(
+    sessionId: string,
+    sessionKeyAddress: string
+): Promise<void> {
+    const supabase = getSupabase();
+
+    const { error } = await supabase
+        .from('sessions')
+        .update({
+            session_key: sessionKeyAddress
+        })
+        .eq('session_id', sessionId);
+
+    if (error) throw new Error(`Failed to update session key: ${error.message}`);
+}
+
 export async function upsertSession(
     sessionId: string,
     userAddress: string,

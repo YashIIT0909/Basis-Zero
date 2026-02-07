@@ -12,6 +12,9 @@ export default function AdminPage() {
     const [rateInput, setRateInput] = useState("")
     const [signerInput, setSignerInput] = useState("")
     const [isSignerActive, setIsSignerActive] = useState(true)
+    const [feeInput, setFeeInput] = useState("")
+    const [treasuryInput, setTreasuryInput] = useState("")
+    const [signaturesInput, setSignaturesInput] = useState("")
 
     // Read current settings
     const { data: currentRate } = useReadContract({
@@ -21,6 +24,27 @@ export default function AdminPage() {
         chainId: polygonAmoy.id
     })
     
+    const { data: currentFee } = useReadContract({
+        address: SESSION_ESCROW_ADDRESS,
+        abi: SESSION_ESCROW_ABI,
+        functionName: "protocolFeeBps",
+        chainId: polygonAmoy.id
+    })
+
+    const { data: currentTreasury } = useReadContract({
+        address: SESSION_ESCROW_ADDRESS,
+        abi: SESSION_ESCROW_ABI,
+        functionName: "protocolTreasury",
+        chainId: polygonAmoy.id
+    })
+
+    const { data: currentSignatures } = useReadContract({
+        address: SESSION_ESCROW_ADDRESS,
+        abi: SESSION_ESCROW_ABI,
+        functionName: "requiredSignatures",
+        chainId: polygonAmoy.id
+    })
+
     const { data: ownerAddress } = useReadContract({
         address: SESSION_ESCROW_ADDRESS,
         abi: SESSION_ESCROW_ABI,
@@ -28,9 +52,21 @@ export default function AdminPage() {
         chainId: polygonAmoy.id
     })
 
-    // Write: Set Yield Rate
+    // Write: Set Rate
     const { writeContract: writeSetRate, data: setRateHash, isPending: isSettingRate } = useWriteContract()
     const { isLoading: isWaitingRate, isSuccess: isRateSuccess } = useWaitForTransactionReceipt({ hash: setRateHash })
+
+    // Write: Set Fee
+    const { writeContract: writeSetFee, data: setFeeHash, isPending: isSettingFee } = useWriteContract()
+    const { isLoading: isWaitingFee, isSuccess: isFeeSuccess } = useWaitForTransactionReceipt({ hash: setFeeHash })
+
+    // Write: Set Treasury
+    const { writeContract: writeSetTreasury, data: setTreasuryHash, isPending: isSettingTreasury } = useWriteContract()
+    const { isLoading: isWaitingTreasury, isSuccess: isTreasurySuccess } = useWaitForTransactionReceipt({ hash: setTreasuryHash })
+
+    // Write: Set Required Signatures
+    const { writeContract: writeSetSignatures, data: setSignaturesHash, isPending: isSettingSignatures } = useWriteContract()
+    const { isLoading: isWaitingSignatures, isSuccess: isSignaturesSuccess } = useWaitForTransactionReceipt({ hash: setSignaturesHash })
 
     // Write: Set Signer
     const { writeContract: writeSetSigner, data: setSignerHash, isPending: isSettingSigner } = useWriteContract()
@@ -53,6 +89,36 @@ export default function AdminPage() {
             abi: SESSION_ESCROW_ABI,
             functionName: "setNitroliteSigner",
             args: [signerInput as Address, isSignerActive]
+        })
+    }
+
+    const handleSetFee = () => {
+        if (!feeInput) return
+        writeSetFee({
+            address: SESSION_ESCROW_ADDRESS,
+            abi: SESSION_ESCROW_ABI,
+            functionName: "setProtocolFee",
+            args: [BigInt(feeInput)]
+        })
+    }
+
+    const handleSetTreasury = () => {
+        if (!treasuryInput) return
+        writeSetTreasury({
+            address: SESSION_ESCROW_ADDRESS,
+            abi: SESSION_ESCROW_ABI,
+            functionName: "setProtocolTreasury",
+            args: [treasuryInput as Address]
+        })
+    }
+
+    const handleSetSignatures = () => {
+        if (!signaturesInput) return
+        writeSetSignatures({
+            address: SESSION_ESCROW_ADDRESS,
+            abi: SESSION_ESCROW_ABI,
+            functionName: "setRequiredSignatures",
+            args: [BigInt(signaturesInput)]
         })
     }
 
@@ -169,6 +235,138 @@ export default function AdminPage() {
                         Update Signer
                     </button>
                     {isSignerSuccess && <p className="text-green-500 text-sm text-center">Signer updated successfully!</p>}
+                </div>
+            </div>
+
+            {/* Protocol Fee Configuration */}
+            <div className="rounded-xl border border-border bg-card/60 glass p-6">
+                <div className="flex items-center gap-2 mb-6">
+                    <Settings className="h-5 w-5 text-primary" />
+                    <h2 className="text-xl font-bold">Protocol Fee Configuration</h2>
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2">
+                    <div>
+                        <label className="block text-sm font-medium text-muted-foreground mb-2">
+                           Current Fee
+                        </label>
+                        <div className="text-2xl font-mono font-bold">
+                            {currentFee ? (Number(currentFee) / 100).toFixed(2) : "Loading..."}%
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Base Points: {currentFee ? currentFee.toString() : '...'} bps
+                        </p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-2">
+                                New Fee (Basis Points)
+                            </label>
+                            <input 
+                                type="number" 
+                                className="w-full bg-background border border-border rounded-lg px-4 py-2"
+                                placeholder="e.g. 100 for 1%"
+                                value={feeInput}
+                                onChange={(e) => setFeeInput(e.target.value)}
+                            />
+                        </div>
+                        <button 
+                            onClick={handleSetFee}
+                            disabled={isSettingFee || isWaitingFee}
+                            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2"
+                        >
+                            {(isSettingFee || isWaitingFee) ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />}
+                            Update Fee
+                        </button>
+                        {isFeeSuccess && <p className="text-green-500 text-sm text-center">Fee updated successfully!</p>}
+                    </div>
+                </div>
+            </div>
+
+            {/* Protocol Treasury Configuration */}
+            <div className="rounded-xl border border-border bg-card/60 glass p-6">
+                <div className="flex items-center gap-2 mb-6">
+                    <Settings className="h-5 w-5 text-primary" />
+                    <h2 className="text-xl font-bold">Protocol Treasury Address</h2>
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2">
+                    <div>
+                        <label className="block text-sm font-medium text-muted-foreground mb-2">
+                           Current Treasury
+                        </label>
+                        <div className="text-sm font-mono break-all bg-muted/50 p-2 rounded">
+                            {currentTreasury ? currentTreasury.toString() : "Loading..."}
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-2">
+                                New Treasury Address
+                            </label>
+                            <input 
+                                type="text" 
+                                className="w-full bg-background border border-border rounded-lg px-4 py-2 font-mono text-sm"
+                                placeholder="0x..."
+                                value={treasuryInput}
+                                onChange={(e) => setTreasuryInput(e.target.value)}
+                            />
+                        </div>
+                        <button 
+                            onClick={handleSetTreasury}
+                            disabled={isSettingTreasury || isWaitingTreasury}
+                            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2"
+                        >
+                            {(isSettingTreasury || isWaitingTreasury) ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />}
+                            Update Treasury
+                        </button>
+                        {isTreasurySuccess && <p className="text-green-500 text-sm text-center">Treasury updated successfully!</p>}
+                    </div>
+                </div>
+            </div>
+
+            {/* Required Signatures Configuration */}
+            <div className="rounded-xl border border-border bg-card/60 glass p-6">
+                <div className="flex items-center gap-2 mb-6">
+                    <ShieldAlert className="h-5 w-5 text-primary" />
+                    <h2 className="text-xl font-bold">Required Signatures</h2>
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2">
+                    <div>
+                        <label className="block text-sm font-medium text-muted-foreground mb-2">
+                           Current Requirement
+                        </label>
+                        <div className="text-2xl font-mono font-bold">
+                            {currentSignatures ? currentSignatures.toString() : "Loading..."}
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-2">
+                                New Requirement (Count)
+                            </label>
+                            <input 
+                                type="number" 
+                                className="w-full bg-background border border-border rounded-lg px-4 py-2"
+                                placeholder="e.g. 1"
+                                value={signaturesInput}
+                                onChange={(e) => setSignaturesInput(e.target.value)}
+                            />
+                        </div>
+                        <button 
+                            onClick={handleSetSignatures}
+                            disabled={isSettingSignatures || isWaitingSignatures}
+                            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2"
+                        >
+                            {(isSettingSignatures || isWaitingSignatures) ? <Loader2 className="animate-spin h-4 w-4" /> : <Save className="h-4 w-4" />}
+                            Update Requirement
+                        </button>
+                        {isSignaturesSuccess && <p className="text-green-500 text-sm text-center">Requirement updated successfully!</p>}
+                    </div>
                 </div>
             </div>
         </div>

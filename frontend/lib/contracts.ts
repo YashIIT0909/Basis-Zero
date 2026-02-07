@@ -138,8 +138,50 @@ export const SESSION_ESCROW_ABI = [
   },
   {
     type: "function",
+    name: "protocolFeeBps",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "protocolTreasury",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "requiredSignatures",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
     name: "setYieldRate",
     inputs: [{ name: "_yieldRateBps", type: "uint256" }],
+    outputs: [],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "function",
+    name: "setProtocolFee",
+    inputs: [{ name: "feeBps", type: "uint256" }],
+    outputs: [],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "function",
+    name: "setProtocolTreasury",
+    inputs: [{ name: "treasury", type: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "function",
+    name: "setRequiredSignatures",
+    inputs: [{ name: "count", type: "uint256" }],
     outputs: [],
     stateMutability: "nonpayable"
   },

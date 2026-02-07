@@ -18,12 +18,14 @@ import {
   createECDSAMessageSigner,
   type MessageSigner,
 } from '@erc7824/nitrolite';
+import { verifyMessage, recoverAddress } from 'ethers';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createWalletClient, createPublicClient, http, type Address, type Hex, keccak256, encodePacked, toHex } from 'viem';
 import { polygonAmoy } from 'viem/chains';
 import { persistentPoolManager, Outcome } from '../amm';
 import * as ammRepository from '../db/amm-repository';
 import { SESSION_ESCROW_ADDRESS, SESSION_ESCROW_ABI } from './contracts';
+import { appLogic, ChannelState } from './app-logic';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -36,6 +38,7 @@ export interface SessionConfig {
   rwaRateBps: number;      // Yield rate in basis points (520 = 5.2%)
   initialYield: bigint;    // Accrued yield at session start (from contract)
   safeModeEnabled: boolean;
+  sessionKey?: Address | null;
   createdAt: number;
   status: 'pending' | 'active' | 'closing' | 'closed';
 }
@@ -107,6 +110,25 @@ export class YellowSessionService {
           // Production would use 520 (5.2% APY)
           rwaRateBps ?? 520000
         );
+
+        // Handle inline session key registration
+        if (req.body.sessionKey && req.body.authorization) {
+             try {
+                const { sessionKey: keyAddr, authorization } = req.body;
+                const message = `Authorize Yellow Session Key: ${keyAddr}`;
+                const signer = verifyMessage(message, authorization);
+                
+                if (signer.toLowerCase() === userAddress.toLowerCase()) {
+                    session.sessionKey = keyAddr.toLowerCase() as Address;
+                    this.sessions.set(session.sessionId, session);
+                    await ammRepository.updateSessionKey(session.sessionId, keyAddr.toLowerCase());
+                    console.log(`🟡 Session Key registered inline: ${keyAddr}`);
+                }
+             } catch (e) {
+                 console.warn("Failed to register session key inline:", e);
+             }
+        }
+
         res.json({ success: true, session: this.serializeSession(session) });
       } catch (error) {
         console.error('[Session Open] Error:', error);
@@ -212,6 +234,112 @@ export class YellowSessionService {
         session: session ? this.serializeSession(session) : null,
         bets: bets.map(b => this.serializeBet(b)),
       });
+    });
+
+    // Register a session key (frontend sends sessionKeyAddress + user's wallet signature)
+    // Body: { sessionId, sessionKeyAddress, authorizationSignature }
+    this.router.post('/channel/register', async (req, res) => {
+      try {
+        const { sessionId, sessionKeyAddress, authorizationSignature } = req.body;
+
+        if (!sessionId || !sessionKeyAddress || !authorizationSignature) {
+          return res.status(400).json({ error: 'sessionId, sessionKeyAddress and authorizationSignature required' });
+        }
+
+        // Fetch existing session (must be opened previously)
+        const dbSession = await ammRepository.getSession(sessionId);
+        if (!dbSession) return res.status(404).json({ error: 'Session not found' });
+
+        // The user must have signed the message: `Authorize session key ${sessionKeyAddress} for session ${sessionId}`
+        const message = `Authorize session key ${sessionKeyAddress} for session ${sessionId}`;
+
+        // Verify signature - frontend wallet signs message via standard EIP-191 prefixed message
+        let signerAddress: string;
+        try {
+          signerAddress = verifyMessage(message, authorizationSignature);
+        } catch (err) {
+          return res.status(400).json({ error: 'Invalid authorization signature' });
+        }
+
+        if (signerAddress.toLowerCase() !== (dbSession.user_address as string).toLowerCase()) {
+          return res.status(401).json({ error: 'Authorization signature not from session owner' });
+        }
+
+        // Store sessionKey in-memory and attempt to persist to DB (best-effort)
+        const inMem = this.sessions.get(sessionId);
+        if (inMem) {
+          inMem.sessionKey = sessionKeyAddress.toLowerCase() as Address;
+          this.sessions.set(sessionId, inMem);
+        }
+
+        try {
+          await ammRepository.updateSessionKey(sessionId, sessionKeyAddress.toLowerCase());
+        } catch (err) {
+          console.warn('[channel/register] Failed to persist session key to DB (maybe column missing)', err);
+        }
+
+        return res.json({ success: true, sessionKey: sessionKeyAddress });
+      } catch (error) {
+        console.error('[channel/register] Error:', error);
+        return res.status(500).json({ error: String(error) });
+      }
+    });
+
+    // Receive signed state update from client (channel-based flow)
+    // Body: { marketId, userId, amount, outcome, signature }
+    this.router.post('/channel/update', async (req, res) => {
+      try {
+        const { marketId, userId, amount, outcome, signature } = req.body;
+        const state: ChannelState = {
+            marketId,
+            userId,
+            amount: BigInt(amount),
+            outcome: outcome === 'YES' ? 0 : 1
+        };
+
+        // 1. Recover Signer using AppLogic (reconstructs exact intent hash)
+        let signer: string;
+        try {
+            signer = await appLogic.recoverSigner(state, signature as Hex);
+        } catch (e) {
+            return res.status(400).json({ error: 'Invalid signature recovery' });
+        }
+
+        // 2. Locate Session
+        const sessionId = this.userSessions.get(userId.toLowerCase() as Address);
+        if (!sessionId) return res.status(404).json({ error: 'No active session for user' });
+
+        const session = this.sessions.get(sessionId);
+        if (!session) return res.status(404).json({ error: 'Session not found' });
+
+        // 3. Verify Session Key Authorization
+        if (!session.sessionKey || session.sessionKey.toLowerCase() !== signer.toLowerCase()) {
+             return res.status(401).json({ error: 'Unauthorized session key signature' });
+        }
+
+        // 4. Validate Logic
+        if (!appLogic.validate(state)) {
+            return res.status(400).json({ error: 'Invalid bet state params' });
+        }
+
+        // 5. Execute Bet
+        const result = await this.placeBet(
+            sessionId,
+            marketId,
+            outcome as 'YES' | 'NO',
+            BigInt(amount)
+        );
+
+        // 6. Return Result (Server "Signs" by processing and returning 200)
+        return res.json({
+          success: result.success,
+          bet: this.serializeBet(result.bet),
+          availableBalance: result.availableBalance.toString(),
+        });
+      } catch (error) {
+        console.error('[channel/update] Error:', error);
+        return res.status(500).json({ error: String(error) });
+      }
     });
 
     // Get streaming balance (yield calculation)
