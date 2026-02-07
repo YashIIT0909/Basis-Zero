@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useAccount } from "wagmi"
+import { useAccount, useWalletClient } from "wagmi"
 import { type Address } from "viem"
+import { yellowClientManager } from "@/lib/yellow-client"
 
 // Types matching backend
 export interface SessionConfig {
@@ -38,6 +39,7 @@ const API_BASE = "http://localhost:3001/api/session"
 
 export function useYellowSession() {
     const { address } = useAccount()
+    const { data: walletClient } = useWalletClient()
     const [sessionId, setSessionId] = useState<string | null>(null)
     const [session, setSession] = useState<SessionConfig | null>(null)
     const [bets, setBets] = useState<Bet[]>([])
@@ -103,7 +105,12 @@ export function useYellowSession() {
                     userAddress: address,
                     collateral: collateral, // Already parsed units string? Backend expects string
                     safeModeEnabled: safeMode,
-                    rwaRateBps: 520 // 5.2%
+                    rwaRateBps: 520, // 5.2%
+                    // Init Session Key (if wallet available)
+                    ...(walletClient && await (async () => {
+                        const { address: sessionKey, signature } = await yellowClientManager.createSession(walletClient);
+                        return { sessionKey, authorization: signature };
+                    })())
                 })
             })
             const data = await res.json()

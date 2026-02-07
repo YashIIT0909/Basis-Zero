@@ -10,6 +10,7 @@ import type { Market, Position } from "@/lib/amm-types"
 interface OrderBookProps {
     selectedMarket?: Market | null
     userId?: string
+    sessionId?: string | null
     maxAmount?: string // Max betting amount (locked session amount)
     isSafeMode?: boolean
     onToggleSafeMode?: (enabled: boolean) => void
@@ -18,6 +19,7 @@ interface OrderBookProps {
 export function OrderBook({ 
     selectedMarket, 
     userId = "demo-user", 
+    sessionId,
     maxAmount,
     isSafeMode = true,
     onToggleSafeMode 
@@ -68,6 +70,7 @@ export function OrderBook({
             await placeBetMutation.mutateAsync({
                 marketId: selectedMarket.marketId,
                 userId,
+                sessionId: sessionId || "",
                 amount: usdcAmount,
                 outcome,
             })

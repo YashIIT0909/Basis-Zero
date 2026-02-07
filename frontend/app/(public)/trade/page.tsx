@@ -128,6 +128,7 @@ export default function TradePage() {
                         <OrderBook
                             selectedMarket={selectedMarket}
                             userId={activeSessionId || address || "guest"}
+                            sessionId={activeSessionId}
                             maxAmount={maxBettingAmount}
                             isSafeMode={isSafeMode}
                             onToggleSafeMode={setIsSafeMode}
